@@ -1,7 +1,6 @@
 #ifndef __FS_INODE_H
 #define __FS_INODE_H
 
-
 #include<stdint.h>
 #include "fs_common.h"
 
@@ -23,7 +22,9 @@
 #define	FS_TIND_BLOCK			(FS_DIND_BLOCK + 1)
 #define	FS_N_BLOCKS			(FS_TIND_BLOCK + 1)
 
-#define 
+#define FS_NORMAL_FILE      0
+#define FS_INDEX_FILE       1
+#define FS_JOURNAL_DATA_FIL 2
 
 struct fs_inode
 {
@@ -40,10 +41,26 @@ struct fs_inode
     uint32_t i_flags;           //file flags
     uint32_t i_block[FS_N_BLOCKS]; //pointers to blocks
     uint32_t i_file_acl;        //file ACL            
-    uint32_t i_dir_acl;         //directory ACL
+    uint32_t i_dir_acl;        //directory ACL
 };
+extern uint32_t ginode_num;
+uint64_t fs_all_dir[FS_MAX_INODES];
+struct fs_inode fs_inode_table[FS_MAX_INODES];
 
-struct fs_inode* fs_create_inode(void);
-int fs_delete_inode(struct fs_inode*);
-
+void fs_inode_init(void);
+void fs_inode_one_init(int num);
+int fs_inode_store(struct fs_inode* inode);
+int fs_inode_read(struct fs_inode* inode);
+int fs_get_free_inode_num(void);
+int fs_inode_read_normal_data(uint8_t *buf, struct fs_inode *inode);
+int fs_inode_write_normal_data(uint8_t *buf, struct fs_inode *inode, int count);
+int fs_inode_read_data(uint8_t *buf, struct fs_inode *inode);
+int fs_inode_delete_data(struct fs_inode *inode);
+int fs_inode_write_data(uint8_t *buf, struct fs_inode *inode, int count);
+void fs_inode_delete_normal_data(struct fs_inode* inode);
+int fs_inode_get_num(struct fs_inode *inode);
+void fs_inode_show_detail(struct fs_inode* inode);
+struct fs_inode* fs_inode_create(void);
+void fs_inode_delete(struct fs_inode* inode);
+int fs_inode_read_all(void);
 #endif

@@ -26,7 +26,7 @@ void preorder_rbtree(rb_root* root);
 void inorder_rbtree(rb_root* root);
 void postorder_rbtree(rb_root* root);
 int rbtree_search(rb_root* root, type key);
-int iterative_rbtree_search(rb_root* root, type key);
+rb_node* iterative_rbtree_search(rb_root* root, type key);
 int rbtree_mininum(rb_root* root, type* key);
 int rbtree_maxinum(rb_root* root,type* ket);
 void print_rbtree(rb_root* root);

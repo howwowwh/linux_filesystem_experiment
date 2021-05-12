@@ -1,6 +1,5 @@
-#include <stdio.h>
-#include "fs_rbtree.h"
-
+#include"fs_common.h"
+#include"fs_rbtree.h"
 #define rb_parent(r) ((r)->parent)
 #define rb_color(r) ((r)->color)
 #define rb_is_red(r) ((r)->color == RED)
@@ -112,9 +111,9 @@ int rbtree_search(rb_root *root, type key)
 
 static rb_node* iterative_search(rb_node* tree, type key)
 {
-    while (tree && tree->key != key)
+    while (tree && (tree->key >> 32) != (key>>32))
     {
-        if (key < tree->key)
+        if ((key>>32) < (tree->key>>32))
         {
             tree = tree->left;
         }
@@ -126,11 +125,11 @@ static rb_node* iterative_search(rb_node* tree, type key)
     return tree;
 }
 
-int iterative_rbtree_search(rb_root *root, type key)
+rb_node* iterative_rbtree_search(rb_root *root, type key)
 {
     if (root)
     {
-        return iterative_search(root->node, key)?0:-1;
+        return iterative_search(root->node, key);
     }
 }
 
@@ -371,9 +370,9 @@ static void rbtree_insert(rb_root *root, rb_node* node)
 
 static rb_node* create_rbtree_node(type key, rb_node* parent, rb_node* left, rb_node* right)
 {
-    rb_node* p;
+    rb_node* p = (rb_node*)malloc(sizeof(rb_node));
 
-    if ((p = (rb_node* )malloc(sizeof(rb_node))) == NULL)
+    if (p == NULL)
         return NULL;
     p->key = key;
     p->left = left;
@@ -390,7 +389,7 @@ int insert_rbtree(rb_root *root, type key)
 
     // 不允许插入相同键值的节点。
     // (若想允许插入相同键值的节点，注释掉下面两句话即可！)
-    if (search(root->node, key) != NULL)
+    if (iterative_rbtree_search(root, key) != NULL)
         return -1;
 
     // 如果新建结点失败，则返回。

@@ -7,19 +7,20 @@
 
 void main()
 {
-    int a[] = {10, 40, 30, 60, 90, 70, 20, 50, 80};
+    uint64_t a[] = {10, 40, 30, 60, 90, 70, 20, 50, 80};
     uint64_t i, ilen = LENGTH(a);
     rb_root *root = NULL;
+    rb_node* node = NULL;
 
     root = create_rbtree();
     printf("== 原始数据: ");
     for (i = 0; i < ilen; i++)
-        printf("%d ", a[i]);
+        printf("%ld ", a[i]<<32);
     printf("\n");
 
     for (i = 0; i < ilen; i++)
     {
-        insert_rbtree(root, a[i]);
+        insert_rbtree(root, a[i]<<32);
 #if CHECK_INSERT
         printf("== 添加节点: %d\n", a[i]);
         printf("== 树的详细信息: \n");
@@ -61,5 +62,12 @@ void main()
     }
 #endif
 
+    for(int i =0; i< LENGTH(a);i++) {
+        node = iterative_rbtree_search(root, a[i]<<32);
+        printf(" %ld"+!i,node->key>>32);
+    }
+    printf("\n");
+    printf("%ld\n" ,sizeof(rb_node));
+    
     destroy_rbtree(root);
 }

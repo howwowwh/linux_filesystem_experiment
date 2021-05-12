@@ -7,6 +7,8 @@ void fs_datablock_init(void)
     int i = 0;
     FILE *fp;
     char buf[50] = {0};
+    system("rm -rf ./FileSystem/blocks && cd FileSystem && mkdir blocks");
+    gBlockBitmap = fs_bitmap_init(FS_MAX_BLOCKS);
     for (i = 0; i < FS_MAX_BLOCKS; i++)
     {
         fs_block_table[i] = 0;
@@ -15,6 +17,16 @@ void fs_datablock_init(void)
         memset(buf, 0, sizeof(buf));
         fclose(fp);
     }
+}
+
+void fs_datablock_clean(int num)
+{
+    FILE *fp;
+    char buf[50] = {0};
+    fs_block_table[num] = 0;
+    sprintf(buf, "./FileSystem/blocks/block%d", num);
+    fp = fopen(buf, "w");
+    fclose(fp);
 }
 
 int fs_read_datablock(uint8_t *read_buf, int block_num)
@@ -156,21 +168,14 @@ int fs_write_index(int *read_buf, int block_num, int count)
 
 int fs_write_datablock_IND(uint8_t *buf, int block_num, int count)
 {
-    int data_block_count = 0;
     int free_block = 0;
     int pcount = 0;
     int write_count = 0;
     int write_num = 0;
-    if ((count / FS_MAX_DATA) > (FS_MAX_DATA / 4))
-    {
-        return NOK;
-    }
-    if (count % FS_MAX_DATA == 0)
-        data_block_count = count / FS_MAX_DATA;
-    else
-        data_block_count = count / FS_MAX_DATA + 1;
+    int max_index = FS_MAX_DATA/sizeof(int);
     //printf("data_block= %d\n", data_block_count);
-    for (int i = 0; i < data_block_count; i++)
+    fs_datablock_clean(block_num);
+    for (int i = 0; i < max_index; i++)
     {
         free_block = fs_bitmap_get_free_num(gBlockBitmap);
         fs_bitmap_set_bit(gBlockBitmap, free_block);
@@ -201,9 +206,14 @@ void fs_delete_datablock_IND(int block_num)
 }
 void fs_datablock_table_print(int *list)
 {
-    printf("dataBlock:");
-    for (int i = 0; i < FS_MAX_INODES; i++)
-        printf(" %d" + !i, list[i]);
+    printf("datablock_table:\n");
+    for (int i = 1; i < FS_MAX_BLOCKS+1; i++)
+    {
+        printf("%5d", list[i-1]);
+        if(i %32 == 0) {
+            printf("\n");
+        }
+    }
     printf("\n");
 }
 
@@ -233,14 +243,13 @@ int fs_write_datablock_DIND(uint8_t *buf, int block_num, int count)
     int write_num = 0;
     int max_index = FS_MAX_DATA / 4;
     int size = count / FS_MAX_DATA / max_index;
-    if (size > max_index)
-        return NOK;
     if (count % FS_MAX_DATA == 0)
         data_block_count = size;
     else
         data_block_count = size + 1;
     //printf("DIND data_block_count = %d\n", data_block_count);
-    for (int i = 0; i < data_block_count; i++)
+    fs_datablock_clean(block_num);
+    for (int i = 0; i < max_index; i++)
     {
         free_block = fs_bitmap_get_free_num(gBlockBitmap);
         fs_bitmap_set_bit(gBlockBitmap, free_block);
@@ -298,14 +307,13 @@ int fs_write_datablock_TIND(uint8_t *buf, int block_num, int count)
     int max_index = FS_MAX_DATA / 4;
     int size = count / FS_MAX_DATA / max_index;
     int TIND_size = size/max_index;
-    if (TIND_size > max_index)
-        return NOK;
     if (count % FS_MAX_DATA == 0)
         data_block_count = TIND_size;
     else
         data_block_count = TIND_size + 1; 
+        fs_datablock_clean(block_num);
     //printf("TIND data_block_count = %d\n", data_block_count);
-    for (int i = 0; i < data_block_count; i++)
+    for (int i = 0; i < max_index; i++)
     {
         free_block = fs_bitmap_get_free_num(gBlockBitmap);
         fs_bitmap_set_bit(gBlockBitmap, free_block);

@@ -17,6 +17,15 @@ void createList(struct list_head* head)
         tmp = tmp->next;
     }
 }
+void deleteList(struct list_head* head)
+{
+    struct numlist* pos = NULL;
+    struct numlist* n = NULL;
+    list_for_each_entry_safe(pos, n, head, list) {
+        list_del(&pos->list);
+        free(pos);
+    }
+}
 void printList(struct list_head* head)
 {
     struct numlist* pos = NULL;
@@ -30,6 +39,8 @@ int main()
     struct numlist head;
     INIT_LIST_HEAD(&head.list);
     createList(&head.list);
+    printList(&head.list);
+    deleteList(&head.list);
     printList(&head.list);
     return 0;
 }

@@ -9,14 +9,14 @@
 
 int main()
 {
-    gBlockBitmap = fs_bitmap_init(128);
+    
     char test[3025];
     char res[2050] = {0};
+    fs_datablock_init();
     int block = fs_bitmap_get_free_num(gBlockBitmap);
     for(int i=0;i< 2049;i++) {
         test[i] = i%26+48;
     }
-    fs_datablock_init();
     fs_bitmap_set_bit(gBlockBitmap,block);
     if( 2049 == fs_write_datablock_TIND(test,block, 2049)) {
         printf("OK\n");
