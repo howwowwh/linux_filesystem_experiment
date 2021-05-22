@@ -1,29 +1,30 @@
 #include "fs_datablock.h"
-
-int fs_block_table[FS_MAX_BLOCKS] = {0};
+#include "fs_superblock.h"
 
 void fs_datablock_init(void)
 {
     int i = 0;
-    FILE *fp;
-    char buf[50] = {0};
+
     system("rm -rf ./FileSystem/blocks && cd FileSystem && mkdir blocks");
-    gBlockBitmap = fs_bitmap_init(FS_MAX_BLOCKS);
     for (i = 0; i < FS_MAX_BLOCKS; i++)
     {
-        fs_block_table[i] = 0;
-        sprintf(buf, "./FileSystem/blocks/block%d", i);
-        fp = fopen(buf, "w");
-        memset(buf, 0, sizeof(buf));
-        fclose(fp);
+        fs_datablock_init_one(i);
     }
 }
-
+void fs_datablock_init_one(int i)
+{
+    FILE *fp;
+    char buf[50] = {0};
+    sb.sb_block_table[i] = 0;
+    sprintf(buf, "./FileSystem/blocks/block%d", i);
+    fp = fopen(buf, "w");
+    fclose(fp);
+}
 void fs_datablock_clean(int num)
 {
     FILE *fp;
     char buf[50] = {0};
-    fs_block_table[num] = 0;
+    sb.sb_block_table[num] = 0;
     sprintf(buf, "./FileSystem/blocks/block%d", num);
     fp = fopen(buf, "w");
     fclose(fp);
@@ -31,7 +32,7 @@ void fs_datablock_clean(int num)
 
 int fs_read_datablock(uint8_t *read_buf, int block_num)
 {
-    int count = fs_block_table[block_num];
+    int count = sb.sb_block_table[block_num];
     FILE *fp = NULL;
     char buf[50];
     sprintf(buf, "./FileSystem/blocks/block%d", block_num);
@@ -57,7 +58,8 @@ int fs_read_datablock_NDIR(uint8_t *buf, int block_num)
 
 int fs_write_datablock(uint8_t *write_buf, int block_num, int count)
 {
-    int size = fs_block_table[block_num];
+    fs_datablock_clean(block_num);
+    int size = sb.sb_block_table[block_num];
     int free_count = FS_MAX_DATA - size;
     int write_count = free_count > count ? count : free_count;
     int tmp = 0;
@@ -79,11 +81,11 @@ int fs_write_datablock(uint8_t *write_buf, int block_num, int count)
     fclose(fp);
     if (size + count >= FS_MAX_DATA)
     {
-        fs_block_table[block_num] = FS_MAX_DATA;
+        sb.sb_block_table[block_num] = FS_MAX_DATA;
     }
     else
     {
-        fs_block_table[block_num] = size + count;
+        sb.sb_block_table[block_num] = size + count;
     }
     return write_count;
 }
@@ -95,13 +97,14 @@ int fs_write_datablock_NDIR(uint8_t *buf, int block_num, int count)
 
 void fs_delete_datablock_NDIR(int block_num)
 {
-    fs_block_table[block_num] = 0;
-    fs_bitmap_set_bit_zero(gBlockBitmap, block_num);
+    sb.sb_block_table[block_num] = 0;
+    fs_bitmap_set_bit_zero(&gBlockBitmap, block_num);
+    printf("delete block%d success!\n",block_num);
 }
 
 int fs_read_index(int *read_buf, int block_num)
 {
-    int count = fs_block_table[block_num] / 4;
+    int count = sb.sb_block_table[block_num] / 4;
     FILE *fp = NULL;
     char buf[50];
     sprintf(buf, "./FileSystem/blocks/block%d", block_num);
@@ -122,7 +125,7 @@ int fs_read_index(int *read_buf, int block_num)
 
 int fs_read_datablock_IND(uint8_t *buf, int block_num)
 {
-    int list[fs_block_table[block_num] / 4];
+    int list[sb.sb_block_table[block_num] / 4];
     int read_count = 0;
     int total = 0;
     int count = fs_read_index(list, block_num);
@@ -138,7 +141,7 @@ int fs_read_datablock_IND(uint8_t *buf, int block_num)
 int fs_write_index(int *read_buf, int block_num, int count)
 {
     char buf[50] = {0};
-    int size = fs_block_table[block_num];
+    int size = sb.sb_block_table[block_num];
     int free_count = FS_MAX_DATA - size;
     int write_count = free_count > (count * 4) ? (count * 4) : free_count;
     FILE *fp = NULL;
@@ -157,11 +160,11 @@ int fs_write_index(int *read_buf, int block_num, int count)
     fclose(fp);
     if (size + write_count >= FS_MAX_DATA)
     {
-        fs_block_table[block_num] = FS_MAX_DATA;
+        sb.sb_block_table[block_num] = FS_MAX_DATA;
     }
     else
     {
-        fs_block_table[block_num] = size + write_count;
+        sb.sb_block_table[block_num] = size + write_count;
     }
     return write_count / 4;
 }
@@ -172,13 +175,20 @@ int fs_write_datablock_IND(uint8_t *buf, int block_num, int count)
     int pcount = 0;
     int write_count = 0;
     int write_num = 0;
-    int max_index = FS_MAX_DATA/sizeof(int);
+    int max_index = FS_MAX_DATA / sizeof(int);
+    int index[FS_MAX_DATA / sizeof(int)] = {0};
+    int index_count = 0;
+    index_count = fs_read_index(index,block_num);
     //printf("data_block= %d\n", data_block_count);
     fs_datablock_clean(block_num);
     for (int i = 0; i < max_index; i++)
-    {
-        free_block = fs_bitmap_get_free_num(gBlockBitmap);
-        fs_bitmap_set_bit(gBlockBitmap, free_block);
+    {   
+        if(index_count == 0){
+            free_block = fs_bitmap_get_free_num(&gBlockBitmap);    
+        }else{
+            free_block = index[i];
+        }
+        fs_bitmap_set_bit(&gBlockBitmap, free_block);
         fs_write_index(&free_block, block_num, 1);
         write_num = (count - write_count) > FS_MAX_DATA ? FS_MAX_DATA : (count - write_count);
         pcount = fs_write_datablock(buf + write_count, free_block, write_num);
@@ -207,10 +217,11 @@ void fs_delete_datablock_IND(int block_num)
 void fs_datablock_table_print(int *list)
 {
     printf("datablock_table:\n");
-    for (int i = 1; i < FS_MAX_BLOCKS+1; i++)
+    for (int i = 1; i < FS_MAX_BLOCKS + 1; i++)
     {
-        printf("%5d", list[i-1]);
-        if(i %32 == 0) {
+        printf("%5d", list[i - 1]);
+        if (i % 32 == 0)
+        {
             printf("\n");
         }
     }
@@ -219,7 +230,7 @@ void fs_datablock_table_print(int *list)
 
 int fs_read_datablock_DIND(uint8_t *buf, int block_num)
 {
-    int list[fs_block_table[block_num] / 4];
+    int list[sb.sb_block_table[block_num] / 4];
     int read_count = 0;
     int total = 0;
     int max_index = FS_MAX_DATA / 4;
@@ -247,12 +258,19 @@ int fs_write_datablock_DIND(uint8_t *buf, int block_num, int count)
         data_block_count = size;
     else
         data_block_count = size + 1;
+    int index[FS_MAX_DATA / sizeof(int)] = {0};
+    int index_count = 0;
+    index_count = fs_read_index(index,block_num);
     //printf("DIND data_block_count = %d\n", data_block_count);
     fs_datablock_clean(block_num);
     for (int i = 0; i < max_index; i++)
     {
-        free_block = fs_bitmap_get_free_num(gBlockBitmap);
-        fs_bitmap_set_bit(gBlockBitmap, free_block);
+        if(index_count == 0){
+            free_block = fs_bitmap_get_free_num(&gBlockBitmap);    
+        }else{
+            free_block = index[i];
+        }
+        fs_bitmap_set_bit(&gBlockBitmap, free_block);
         fs_write_index(&free_block, block_num, 1);
         write_num = (count - write_count) > (FS_MAX_DATA * max_index) ? (FS_MAX_DATA * max_index) : (count - write_count);
         pcount = fs_write_datablock_IND(buf + write_count, free_block, write_num);
@@ -279,10 +297,9 @@ void fs_delete_datablock_DIND(int block_num)
     fs_delete_datablock_NDIR(block_num);
 }
 
-
 int fs_read_datablock_TIND(uint8_t *buf, int block_num)
 {
-    int list[fs_block_table[block_num] / 4];
+    int list[sb.sb_block_table[block_num] / 4];
     int read_count = 0;
     int total = 0;
     int max_index = FS_MAX_DATA / 4;
@@ -306,17 +323,24 @@ int fs_write_datablock_TIND(uint8_t *buf, int block_num, int count)
     int write_num = 0;
     int max_index = FS_MAX_DATA / 4;
     int size = count / FS_MAX_DATA / max_index;
-    int TIND_size = size/max_index;
+    int TIND_size = size / max_index;
     if (count % FS_MAX_DATA == 0)
         data_block_count = TIND_size;
     else
-        data_block_count = TIND_size + 1; 
-        fs_datablock_clean(block_num);
+        data_block_count = TIND_size + 1;
+    int index[FS_MAX_DATA / sizeof(int)] = {0};
+    int index_count = 0;
+    index_count = fs_read_index(index,block_num);
+    fs_datablock_clean(block_num);
     //printf("TIND data_block_count = %d\n", data_block_count);
     for (int i = 0; i < max_index; i++)
     {
-        free_block = fs_bitmap_get_free_num(gBlockBitmap);
-        fs_bitmap_set_bit(gBlockBitmap, free_block);
+        if(index_count == 0){
+            free_block = fs_bitmap_get_free_num(&gBlockBitmap);    
+        }else{
+            free_block = index[i];
+        }
+        fs_bitmap_set_bit(&gBlockBitmap, free_block);
         fs_write_index(&free_block, block_num, 1);
         write_num = (count - write_count) > (FS_MAX_DATA * max_index) ? (FS_MAX_DATA * max_index * max_index) : (count - write_count);
         pcount = fs_write_datablock_DIND(buf + write_count, free_block, write_num);

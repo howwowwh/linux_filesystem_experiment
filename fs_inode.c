@@ -1,38 +1,42 @@
 #include <stdlib.h>
 #include <time.h>
-#include "fs_inode.h"
-#include "fs_bitmap.h"
+#include"fs_common.h"
+#include"fs_bitmap.h"
 #include "fs_datablock.h"
-struct fs_inode fs_inode_table[FS_MAX_INODES] = {0};
-uint32_t ginode_num = 0;
+#include"fs_superblock.h"
 void fs_inode_init(void)
 {
+    
     int i = 0;
+    int pid = 0;
     system("rm -rf ./FileSystem/inodes && cd FileSystem && mkdir inodes");
-    gInodeBitmap = fs_bitmap_init(FS_MAX_INODES);
     for (i = 0; i < FS_MAX_INODES; i++)
     {
         fs_inode_one_init(i);
     }
 }
-struct fs_inode* fs_inode_create()
+struct fs_inode *fs_inode_create()
 {
-    int inode_num = fs_bitmap_get_free_num(gInodeBitmap);
-    if(inode_num < 0) {
+    int inode_num = fs_bitmap_get_free_num(&gInodeBitmap);
+    if (inode_num < 0)
+    {
         return NULL;
     }
-    fs_bitmap_set_bit(gInodeBitmap,inode_num);
-    ginode_num++;
-    return &fs_inode_table[inode_num];
+    sb.sb_inode_table[0];
+    fs_bitmap_set_bit(&gInodeBitmap, inode_num);
+    sb.sb_inode_num++;
+    return &sb.sb_inode_table[inode_num];
 }
-void fs_inode_delete(struct fs_inode* inode)
+void fs_inode_delete(struct fs_inode *inode)
 {
-    if(ginode_num < 1) {
+    if (sb.sb_inode_num < 1)
+    {
         return;
     }
     int inode_num = fs_inode_get_num(inode);
-    fs_bitmap_set_bit_zero(gInodeBitmap,inode_num);
-    ginode_num--;
+    fs_bitmap_set_bit_zero(&gInodeBitmap, inode_num);
+    printf("Inode%d delete success\n",inode_num);
+    sb.sb_inode_num--;
 }
 int fs_inode_store(struct fs_inode *inode)
 {
@@ -88,15 +92,16 @@ void fs_inode_one_init(int num)
         printf("inode%d init open error\n", num);
         return;
     }
-    memset(&fs_inode_table[num], 0, sizeof(struct fs_inode));
-    memset(fs_inode_table[num].i_block, 0xffffffff, sizeof(fs_inode_table[num].i_block[0]) * FS_N_BLOCKS);
-    fs_inode_store(&fs_inode_table[num]);
+    
+    memset(&sb.sb_inode_table[num], 0, sizeof(struct fs_inode));
+    memset(sb.sb_inode_table[num].i_block, 0xffffffff, sizeof(sb.sb_inode_table[num].i_block[0]) * FS_N_BLOCKS);
+    fs_inode_store(&sb.sb_inode_table[num]);
     fclose(fp);
 }
 
 int fs_get_free_inode_num(void)
 {
-    return fs_bitmap_get_free_num(gInodeBitmap);
+    return fs_bitmap_get_free_num(&gInodeBitmap);
 }
 
 int fs_inode_read_normal_data(uint8_t *buf, struct fs_inode *inode)
@@ -123,10 +128,12 @@ int fs_inode_write_normal_data(uint8_t *buf, struct fs_inode *inode, int count)
     int block_num = 0;
     for (i = 0; i < FS_NDIR_BLOCKS; i++)
     {
-        block_num = fs_bitmap_get_free_num(gBlockBitmap);
-        inode->i_block[i] = block_num;
-        write_count = fs_write_datablock_NDIR(buf + total, inode->i_block[i], count-total);
-        fs_bitmap_set_bit(gBlockBitmap, block_num);
+        if(inode->i_block[i] == 0xffffffff) {
+            block_num = fs_bitmap_get_free_num(&gBlockBitmap);
+            inode->i_block[i] = block_num;
+        }
+        write_count = fs_write_datablock_NDIR(buf + total, inode->i_block[i], count - total);
+        fs_bitmap_set_bit(&gBlockBitmap, block_num);
         total += write_count;
         inode->i_blocks++;
         if (total >= count)
@@ -144,12 +151,13 @@ int fs_inode_read_data(uint8_t *buf, struct fs_inode *inode)
     int size = inode->i_size;
     int total = 0;
     time(&(inode->i_atime));
-    read_count = fs_inode_read_normal_data(buf+total, inode);
+    read_count = fs_inode_read_normal_data(buf + total, inode);
     total += read_count;
     if (total >= size)
     {
         return total;
-    }else
+    }
+    else
     {
         read_count = fs_read_datablock_IND(buf + total, inode->i_block[FS_IND_BLOCK]);
         total += read_count;
@@ -186,25 +194,21 @@ int fs_inode_read_data(uint8_t *buf, struct fs_inode *inode)
 int fs_inode_delete_data(struct fs_inode *inode)
 {
 
-    
     uint32_t max = 0xffffffff;
     int inode_num = fs_inode_get_num(inode);
     if (inode->i_block[FS_TIND_BLOCK] != max)
     {
         fs_delete_datablock_TIND(inode->i_block[FS_TIND_BLOCK]);
     }
-    else if (inode->i_block[FS_DIND_BLOCK] != max)
+   if(inode->i_block[FS_DIND_BLOCK] != max)
     {
         fs_delete_datablock_DIND(inode->i_block[FS_DIND_BLOCK]);
     }
-    else if (inode->i_block[FS_IND_BLOCK] != max)
+   if(inode->i_block[FS_IND_BLOCK] != max)
     {
         fs_delete_datablock_IND(inode->i_block[FS_IND_BLOCK]);
     }
-    else
-    {
-        fs_inode_delete_normal_data(inode);
-    }
+    fs_inode_delete_normal_data(inode);
     fs_inode_one_init(inode_num);
     time(&(inode->i_dtime));
     return OK;
@@ -227,14 +231,19 @@ int fs_inode_write_data(uint8_t *buf, struct fs_inode *inode, int count)
     if (total >= count)
     {
         inode->i_size = total;
+        fs_inode_store(inode);
         return total;
-    }else{
+    }
+    else
+    {
         next_count = count - total;
-        block_num = fs_bitmap_get_free_num(gBlockBitmap);
-        inode->i_block[FS_IND_BLOCK] = block_num;
-        fs_bitmap_set_bit(gBlockBitmap, block_num);
+        if(inode->i_block[FS_IND_BLOCK] == 0xffffffff) {
+            block_num = fs_bitmap_get_free_num(&gBlockBitmap);
+            inode->i_block[FS_IND_BLOCK] = block_num;
+        }
+        fs_bitmap_set_bit(&gBlockBitmap, block_num);
         write_count = fs_write_datablock_IND(buf + total, inode->i_block[FS_IND_BLOCK], next_count);
-        if(write_count < 0)
+        if (write_count < 0)
         {
             printf("inode%d write error\n", inode_num);
         }
@@ -243,12 +252,16 @@ int fs_inode_write_data(uint8_t *buf, struct fs_inode *inode, int count)
         if (total >= count)
         {
             inode->i_size = total;
+            fs_inode_store(inode);
             return total;
-        }else{
+        }
+        else
+        {
             next_count = count - total;
-            block_num = fs_bitmap_get_free_num(gBlockBitmap);
+            block_num = fs_bitmap_get_free_num(&gBlockBitmap);
             inode->i_block[FS_DIND_BLOCK] = block_num;
-            if(NOK == fs_bitmap_set_bit(gBlockBitmap, block_num)) {
+            if (NOK == fs_bitmap_set_bit(&gBlockBitmap, block_num))
+            {
                 return NOK;
             }
             write_count = fs_write_datablock_DIND(buf + total, inode->i_block[FS_DIND_BLOCK], next_count);
@@ -261,12 +274,15 @@ int fs_inode_write_data(uint8_t *buf, struct fs_inode *inode, int count)
             if (total >= count)
             {
                 inode->i_size = total;
+                fs_inode_store(inode);
                 return total;
-            }else{
+            }
+            else
+            {
                 next_count = count - total;
-                block_num = fs_bitmap_get_free_num(gBlockBitmap);
+                block_num = fs_bitmap_get_free_num(&gBlockBitmap);
                 inode->i_block[FS_TIND_BLOCK] = block_num;
-                fs_bitmap_set_bit(gBlockBitmap, block_num);
+                fs_bitmap_set_bit(&gBlockBitmap, block_num);
                 write_count = fs_write_datablock_TIND(buf + total, inode->i_block[FS_TIND_BLOCK], next_count);
                 if (write_count < 0)
                 {
@@ -277,8 +293,11 @@ int fs_inode_write_data(uint8_t *buf, struct fs_inode *inode, int count)
                 if (total >= count)
                 {
                     inode->i_size = total;
+                    fs_inode_store(inode);
                     return total;
-                }else{
+                }
+                else
+                {
                     return NOK;
                 }
             }
@@ -304,7 +323,7 @@ int fs_inode_get_num(struct fs_inode *inode)
 {
     for (int i = 0; i < FS_MAX_INODES; i++)
     {
-        if (inode == &fs_inode_table[i])
+        if (inode == &sb.sb_inode_table[i])
         {
             return i;
         }
@@ -335,10 +354,17 @@ void fs_inode_show_detail(struct fs_inode *inode)
 
 int fs_inode_read_all(void)
 {
-    for(int i = 0; i < FS_MAX_INODES;i++) {
-        if(NOK == fs_inode_read(&fs_inode_table[i])){
+    for (int i = 0; i < FS_MAX_INODES; i++)
+    {
+        if (NOK == fs_inode_read(&sb.sb_inode_table[i]))
+        {
             return NOK;
         }
     }
     return OK;
+}
+void fs_delete_inode(uint32_t num)
+{
+    fs_inode_delete_data(&sb.sb_inode_table[num]);
+    fs_inode_delete(&sb.sb_inode_table[num]);
 }

@@ -3,6 +3,7 @@
 
 #include<stdint.h>
 #include "fs_common.h"
+#include"fs_superblock.h"
 
 /*Specital indoes numbers*/
 #define FS_BAD_INO  1 /*Bad blocks inode*/
@@ -43,9 +44,6 @@ struct fs_inode
     uint32_t i_file_acl;        //file ACL            
     uint32_t i_dir_acl;        //directory ACL
 };
-extern uint32_t ginode_num;
-uint64_t fs_all_dir[FS_MAX_INODES];
-struct fs_inode fs_inode_table[FS_MAX_INODES];
 
 void fs_inode_init(void);
 void fs_inode_one_init(int num);
@@ -63,4 +61,5 @@ void fs_inode_show_detail(struct fs_inode* inode);
 struct fs_inode* fs_inode_create(void);
 void fs_inode_delete(struct fs_inode* inode);
 int fs_inode_read_all(void);
+void fs_delete_inode(uint32_t num);
 #endif

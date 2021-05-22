@@ -13,8 +13,8 @@
 
 #define OK 0
 #define NOK -1
-#define FS_MAX_INODES 128  //最大inode数量
-#define FS_MAX_BLOCKS 1024   //最大block数量
-#define FS_MAX_DATA 1020 //每个block最大存储数据量
+#define FS_MAX_INODES 1024  //最大inode数量
+#define FS_MAX_BLOCKS 1024*32   //最大block数量
+#define FS_MAX_DATA 4096 //每个block最大存储数据量
 #define FILE_NAME_LEN 256
 #endif

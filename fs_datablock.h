@@ -2,8 +2,7 @@
 #define __FS_DATABLOCK_H
 #include "fs_common.h"
 #include "fs_bitmap.h"
-
-extern int fs_block_table[FS_MAX_BLOCKS];
+#include"fs_superblock.h"
 
 void fs_delete_datablock_IND(int block_num);
 void fs_datablock_init(void);
@@ -25,4 +24,5 @@ void fs_delete_datablock_TIND(int block_num);
 int fs_write_datablock_TIND(uint8_t *buf, int block_num, int count);
 int fs_read_datablock_TIND(uint8_t *buf, int block_num);
 void fs_datablock_clean(int num);
+void fs_datablock_init_one(int i);
 #endif

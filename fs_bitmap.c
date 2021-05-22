@@ -1,22 +1,13 @@
 #include"fs_bitmap.h"
-struct fs_bitmap* gBlockBitmap;
-struct fs_bitmap* gInodeBitmap;
-int fs_bitmap_block_gflag = 0;
-struct fs_bitmap* fs_bitmap_init(int count)
+#include"fs_superblock.h"
+struct fs_bitmap gBlockBitmap;
+struct fs_bitmap gInodeBitmap;
+void fs_bitmap_init()
 {
-    int size = 0;
-    struct fs_bitmap *res;
-    if(count%8 == 0) {
-        size = count/8;
-    } else {
-        size = count/8+1;
-    }
-    res = (struct fs_bitmap*)malloc(sizeof(struct fs_bitmap));
-    memset(res, 0, sizeof(struct fs_bitmap));
-    res->total = count;
-    res->map = (uint8_t*)malloc(sizeof(char)*size);
-    memset(res->map, 0 ,sizeof(char)*size);
-    return res;
+     gBlockBitmap.map = sb.sb_datablock_bitmap;
+     gBlockBitmap.total = FS_MAX_BLOCKS;
+     gInodeBitmap.map = sb.sb_inode_bitmap;
+     gInodeBitmap.total = FS_MAX_INODES;
 }
 
 int fs_bitmap_set_bit(struct fs_bitmap* map, int num)
@@ -94,14 +85,17 @@ void fs_print_bitmap(struct fs_bitmap* map)
     int j = 0;
     int res = -1;
     uint8_t mask = 128;
-    for(i =0;i<map->total/8+1;i++) {
+    for(i =1;i<map->total/8+2;i++) {
         mask = 128;
         for(j = 0; j < 8; j++) {
-            res = map->map[i]&mask;
+            res = map->map[i-1]&mask;
             printf("%d",res>>(8-j-1));
             mask >>= 1;
         }
         printf(" ");
+        if(i%16 == 0){
+            printf("\n");
+        }
     }
     printf("\n");
 }

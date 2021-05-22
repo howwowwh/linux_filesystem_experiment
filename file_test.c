@@ -1,4 +1,5 @@
 #include"fs_common.h"
+#include"fs_superblock.h"
 #include"fs_datablock.h"
 #include"fs_inode.h"
 #include"fs_rbtree.h"
@@ -9,32 +10,22 @@ int main(void)
 {
     struct fs_file* file = NULL;
     struct fs_file_entry list;
-    fs_inode_init();
-    fs_datablock_init();
+    fs_init();
+    fs_superblock_init(&sb);
 
-    INIT_LIST_HEAD(&list.list);
-    fs_current_dir->file_list = &list;
-    gBlockBitmap = fs_bitmap_init(FS_MAX_BLOCKS);
-    fs_current_dir->root.node = NULL;
-    file = fs_file_create("1552352", FS_NORMAL_FILE);
     char test[2049];
-    char res[5000] = {0};
+    char res[2050] = {0};
     int tmp = 0;
     for(int i=0;i< 2049;i++) {
-        test[i] = i%26+48;
+        test[i] = i%26+48; 
     }
-    fs_print_bitmap(gInodeBitmap);
-    if(2049 !=fs_file_write_data(file->name,test,2049)) {
-        printf("file test write error\n");
-        return 0;
-    }
-    fs_datablock_table_print(fs_block_table);
-    if(2049 != (tmp = fs_file_read_data(file->name,res))){
-        printf("file test read error %d\n",tmp);
-    }
+    fs_print_bitmap(&gInodeBitmap);
+
+    printf("write OK\n");
+    int a = sizeof(struct fs_file);
     
-    printf("%s\n",res+sizeof(struct fs_file));
-    file = fs_file_create("dir",FS_INDEX_FILE);
+    fs_file_create("dir",FS_INDEX_FILE);
+    fs_print_bitmap(&gInodeBitmap);
     uint64_t hash = jhash("dir",3, 0);
     rb_node* node =NULL;
     struct fs_file* tmpFile = NULL;
@@ -43,15 +34,16 @@ int main(void)
     fs_list_file();
     tmpFile = fs_file_read(fs_current_dir->hash);
     fs_file_print(tmpFile);
-    file = fs_file_create("dir2",FS_INDEX_FILE);
+    fs_file_create("dir2",FS_INDEX_FILE);
     fs_file_create("tmp.text",FS_NORMAL_FILE);
     fs_file_create("tmp.doc",FS_NORMAL_FILE);
     fs_file_create("tmp.doc",FS_NORMAL_FILE);
-    fs_change_dirent(file->hash);
+    cd("dir2");
     tmpFile = fs_file_read(fs_current_dir->hash);
     fs_file_print(tmpFile);
     fs_change_dirent(fs_current_dir->pre_hash);
     fs_list_file();
+    fs_print_bitmap(&gInodeBitmap);
     if(2049 !=fs_file_write_data("tmp.doc",test,2049)) {
         printf("file test write error\n");
         return 0;
@@ -60,6 +52,10 @@ int main(void)
         printf("file test read error %d\n",tmp);
     }
     
-    printf("%s:%s\n",file->name,res+sizeof(struct fs_file));
+    printf("tmp.doc:\n%s\n",res);
+    cat("tmp.doc");
+    inorder_rbtree(&fs_current_dir->root);
+    printf("\n");
+    
     return 0;
 }

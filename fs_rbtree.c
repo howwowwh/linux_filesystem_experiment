@@ -54,9 +54,9 @@ static void inorder(rb_node* tree)
     if (tree)
     {
 
-        preorder(tree->left);
-        printf("%ld ", tree->key);
-        preorder(tree->right);
+        inorder(tree->left);
+        printf("%lx ", tree->key);
+        inorder(tree->right);
     }
 }
 
@@ -111,9 +111,10 @@ int rbtree_search(rb_root *root, type key)
 
 static rb_node* iterative_search(rb_node* tree, type key)
 {
-    while (tree && (tree->key >> 32) != (key>>32))
+    uint64_t mask = 0xffffffff00000000;
+    while (tree && (tree->key & mask) != key)
     {
-        if ((key>>32) < (tree->key>>32))
+        if (key < (tree->key & mask ))
         {
             tree = tree->left;
         }
@@ -127,9 +128,10 @@ static rb_node* iterative_search(rb_node* tree, type key)
 
 rb_node* iterative_rbtree_search(rb_root *root, type key)
 {
+    uint64_t mask = 0xffffffff00000000;
     if (root)
     {
-        return iterative_search(root->node, key);
+        return iterative_search(root->node, key & mask);
     }
 }
 
@@ -606,7 +608,6 @@ void destroy_rbtree(rb_root *root)
     if (root != NULL)
         rbtree_destroy(root->node);
 
-    free(root);
 }
 
 static void rbtree_print(rb_node* tree, type key, int direction)

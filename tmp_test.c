@@ -5,49 +5,34 @@
 #include<stdint.h>
 #include<sys/stat.h> 
 #include<fcntl.h>
-union tmp_test
-{
-    uint8_t list[8];
-    int a[2];
-};
-
+#include"fs_common.h"
+#include"fs_superblock.h"
+#include"fs_datablock.h"
+#include"fs_inode.h"
+#include"fs_bitmap.h"
+#include"fs_rbtree.h"
+#include"fs_file.h"
+#include"fs_hash.h"
+#define G_FILE 1024*1024*100
 int main()
-{
-    int i = 0;
-    FILE* fp;
-    //system("mkdir FileSystem");
-    //system("cd ./FileSystem && mkdir blocks && mkdir inodes && mkdir superblocks");
-    char buf[50] = {0};
-    int a[2]={111,222};
-    union tmp_test x;
-    uint8_t test[8];
-    for(i =0;i<128;i++) {
-        sprintf(buf,"./FileSystem/inodes/inode%d",i);
-        fp=fopen(buf, "w");
-        memset(buf, 0, sizeof(buf));
-        fclose(fp);
+{   
+    fs_init();
+    fs_superblock_init(&sb);
+    char* txt = (char*)malloc(G_FILE);
+    char* res = (char*)malloc(G_FILE+1);
+    for(int i = 0;i< G_FILE;i++) {
+        txt[i] = i%26+48; 
     }
-    fp = fopen("./FileSystem/inodes/inode0","r+");
-    if(2 == fwrite(a,sizeof(int), 2,fp)) {
-        printf("ok\n");
+    fs_file_create("huge",FS_NORMAL_FILE);
+    if(G_FILE != fs_file_write_data("huge", txt, G_FILE))
+    {
+        printf("error\n");
     }
-    a[0] = 520;
-    a[1] = 1314;
-    fflush(fp);
-    fclose(fp);
-    fp = fopen("./FileSystem/inodes/inode0","r+");
-    if(2 == fread(a,sizeof(int),2,fp)) {
-        printf("%d %d\n",a[0],a[1]);
-    }
-    fclose(fp);
-    fp = fopen("./FileSystem/inodes/inode0","r+");
-    if(8 != fread(test,sizeof(uint8_t),8,fp)) {
-        printf("error!\n");
-    }
-    for(i = 0;i<8;i++) {
-        x.list[i] = test[i];
-    }
-    printf("%d %d\n",x.a[0],x.a[1]);
-    fclose(fp);
+  /*  if(G_FILE != fs_file_read_data("huge", res))
+    {
+        printf("error\n");
+    }   
+    */
+    fs_superblock_write(&sb);
     return 0;
 }
